@@ -7,7 +7,7 @@
 #define MAX_INPUT 1024
 #define MAX_ARGS 64
 
-// Function prototypes
+
 void execute_command(char *args[]);
 int cd(char *path);
 void pwd();
@@ -21,13 +21,13 @@ int main() {
         printf("$ ");
         fflush(stdout);
 
-        // Read the user input
+        
         if (!fgets(input, MAX_INPUT, stdin)) {
             printf("\n");
             break;
         }
 
-        // Tokenize input
+        
         char *token;
         int i = 0;
         token = strtok(input, " \n");
@@ -37,8 +37,10 @@ int main() {
         }
         args[i] = NULL;
 
-        // Check for built-in commands
-        if (strcmp(args[0], "cd") == 0) {
+        
+        if (args[0] == NULL) {
+            continue;
+        } else if (strcmp(args[0], "cd") == 0) {
             if (args[1] == NULL) {
                 fprintf(stderr, "cd: expected argument to \"cd\"\n");
             } else {
@@ -60,7 +62,7 @@ int main() {
     return 0;
 }
 
-// Execute external command
+
 void execute_command(char *args[]) {
     pid_t pid = fork();
 
@@ -68,24 +70,24 @@ void execute_command(char *args[]) {
         perror("fork");
         exit(EXIT_FAILURE);
     } else if (pid == 0) {
-        // Child process
+        
         if (execvp(args[0], args) == -1) {
             perror("execvp");
             exit(EXIT_FAILURE);
         }
     } else {
-        // Parent process
+        
         int status;
         waitpid(pid, &status, 0);
     }
 }
 
-// Change directory
+
 int cd(char *path) {
     return chdir(path);
 }
 
-// Print current working directory
+
 void pwd() {
     char cwd[MAX_INPUT];
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
@@ -95,13 +97,53 @@ void pwd() {
     }
 }
 
-// Echo command
+
 void echo(char *args[]) {
     int i = 1;
+    int redirect_index = -1;
+    int append_mode = 0;
+
+    
     while (args[i] != NULL) {
-        printf("%s ", args[i]);
+        if (strcmp(args[i], ">") == 0) {
+            redirect_index = i;
+            append_mode = 0;
+            break;
+        } else if (strcmp(args[i], ">>") == 0) {
+            redirect_index = i;
+            append_mode = 1;
+            break;
+        }
         i++;
     }
-    printf("\n");
-}
 
+    if (redirect_index != -1 && args[redirect_index + 1] != NULL) {
+        
+        FILE *file;
+        if (append_mode) {
+            file = fopen(args[redirect_index + 1], "a");
+        } else {
+            file = fopen(args[redirect_index + 1], "w");
+        }
+
+        if (file == NULL) {
+            perror("fopen");
+            return;
+        }
+
+        
+        for (i = 1; i < redirect_index; i++) {
+            fprintf(file, "%s ", args[i]);
+        }
+        fprintf(file, "\n");
+        fclose(file);
+    } else {
+        
+        i = 1;
+        while (args[i] != NULL) {
+            printf("%s ", args[i]);
+            i++;
+        }
+        printf("\n");
+    }
+}
